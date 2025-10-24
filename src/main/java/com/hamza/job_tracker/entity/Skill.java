@@ -17,9 +17,10 @@ public class Skill {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String name; // Ex: "Java", "Angular", "SQL"
+    private String name;
+
     @ManyToMany(mappedBy = "requiredSkills")
-    @ToString.Exclude // Empêche la boucle dans le toString()
-    @JsonIgnore // Ignore ce champ lors de la sérialisation JSON pour casser la boucle
+    @ToString.Exclude
+    @JsonIgnore
     private Set<Job> jobs;
 }

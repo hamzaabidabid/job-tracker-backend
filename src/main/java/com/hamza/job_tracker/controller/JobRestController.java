@@ -1,5 +1,6 @@
 package com.hamza.job_tracker.controller;
 
+import com.hamza.job_tracker.dto.DashboardStatsDTO;
 import com.hamza.job_tracker.dto.StatDTO;
 import com.hamza.job_tracker.entity.Job;
 import com.hamza.job_tracker.service.JobService;
@@ -11,7 +12,8 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/jobs") // Préfixe commun pour toutes les routes de ce contrôleur
-@CrossOrigin(origins = "http://localhost:4200") // IMPORTANT : Autorise les requêtes depuis Angular
+@CrossOrigin(origins = {"http://localhost:4200", "http://localhost:8080"})
+
 public class JobRestController {
 
     @Autowired
@@ -46,13 +48,17 @@ public class JobRestController {
         return ResponseEntity.noContent().build();
     }
 
-    // --- NOUVELLES ROUTES POUR LE DASHBOARD ---
-
-    @GetMapping("/latest")
-    public List<Job> getLatestJobs() {
-        // On n'a plus besoin de passer de paramètre ici
-        return jobService.getLatestJobs();
+    @GetMapping("/favorites")
+    public List<Job> getFavoriteJobs() {
+        return jobService.getFavoriteJobs();
     }
+
+    @PatchMapping("/{id}/favorite") // PATCH est sémantiquement correct pour une mise à jour partielle
+    public ResponseEntity<Job> toggleFavorite(@PathVariable Long id) {
+        return ResponseEntity.ok(jobService.toggleFavoriteStatus(id));
+    }
+
+
 
     @GetMapping("/recent-responses")
     public List<Job> getJobsWithRecentResponse() {
@@ -67,5 +73,14 @@ public class JobRestController {
     @GetMapping("/stats/by-city")
     public List<StatDTO> getJobsByCity() {
         return jobService.countJobsByCity();
+    }
+    @GetMapping("/latest")
+    public List<Job> getLatestJobs() {
+        return jobService.getLatestJobs();
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<DashboardStatsDTO> getDashboardStats() {
+        return ResponseEntity.ok(jobService.getDashboardStats());
     }
 }

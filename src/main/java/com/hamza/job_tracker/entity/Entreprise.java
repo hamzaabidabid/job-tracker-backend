@@ -25,16 +25,16 @@ public class Entreprise {
     private String adresse;
     private String ville;
 
-    // --- CORRECTION 3 : Rendre ces champs optionnels pour éviter les erreurs ---
-    @Column(nullable = true) // <-- METTRE 'true' AU LIEU DE 'false'
+    @Column(nullable = true)
     private String telephone;
 
-    @Column(nullable = true) // <-- METTRE 'true' AU LIEU DE 'false'
+    @Column(nullable = true)
     private String email;
 
-
-    @OneToMany(mappedBy = "entreprise", fetch = FetchType.LAZY) // LAZY est souvent mieux ici
-    @ToString.Exclude // Empêche la boucle dans le toString()
-    @JsonIgnore // Ignore ce champ lors de la sérialisation JSON pour casser la boucle
+    @OneToMany(mappedBy = "entreprise", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @JsonIgnore
     private Set<Job> jobs;
+
+    // SUPPRESSION du getter manuel. Lombok s'en occupe.
 }

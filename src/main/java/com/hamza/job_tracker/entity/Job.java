@@ -23,6 +23,7 @@ public class Job {
 
     @Column(columnDefinition = "TEXT")
     private String description;
+
     private LocalDate dateLancement;
     private LocalDate dateCandidature;
     private LocalDate dateReponse;
@@ -33,18 +34,20 @@ public class Job {
     @Enumerated(EnumType.STRING)
     private JobStatus status;
 
-    // --- CORRECTION 1 : AJOUTER LA CASCADE ICI ---
-    @ManyToOne(cascade = CascadeType.ALL) // <-- AJOUTEZ CECI
+    // Utiliser une cascade plus sûre que .ALL
+    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinColumn(name = "entreprise_id", nullable = false)
     private Entreprise entreprise;
 
-    // --- CORRECTION 2 : AJOUTER LA CASCADE ICI ---
-    @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL) // <-- AJOUTEZ CECI
+    @ManyToMany(fetch = FetchType.EAGER, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
             name = "job_skill",
             joinColumns = @JoinColumn(name = "job_id"),
             inverseJoinColumns = @JoinColumn(name = "skill_id")
     )
-    @ToString.Exclude // Empêche la boucle dans le toString()
+    @ToString.Exclude
     private Set<Skill> requiredSkills;
+
+    private boolean isFavorite = false;
+    // SUPPRESSION des getters/setters manuels. Lombok s'en occupe.
 }

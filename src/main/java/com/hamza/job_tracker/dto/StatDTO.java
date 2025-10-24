@@ -10,4 +10,6 @@ import lombok.NoArgsConstructor;
 public class StatDTO {
     private String name;
     private Long value;
+
+    // SUPPRESSION du constructeur manuel. @AllArgsConstructor s'en occupe.
 }
