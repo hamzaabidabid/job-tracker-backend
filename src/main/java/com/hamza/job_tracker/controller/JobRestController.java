@@ -12,7 +12,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/jobs") // Préfixe commun pour toutes les routes de ce contrôleur
-@CrossOrigin(origins = {"http://localhost:4200", "http://localhost:8080"})
+@CrossOrigin(origins = {"http://localhost:4200", "http://localhost:8080","http://127.0.0.1"})
 
 public class JobRestController {
 

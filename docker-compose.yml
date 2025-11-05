@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # Service pour la Base de Données (PostgreSQL)
+  postgres-db:
+    image: postgres:11-alpine
+    restart: always
+    container_name: postgres-db
+    environment:
+      POSTGRES_DB: job_tracker
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: emsi
+    volumes:
+      # Le volume est maintenant géré par ce compose
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      # On expose le port pour pouvoir se connecter depuis l'extérieur si besoin
+      - "5433:5432"
+    networks:
+      # Il est connecté au réseau partagé pour que le frontend puisse le voir si nécessaire
+      # (même si le frontend ne parle qu'au backend)
+      - job-tracker-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d job_tracker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Service pour le Backend (Spring Boot)
+  backend:
+    # On construit l'image depuis le Dockerfile du dossier courant
+    build: .
+    container_name: backend-app
+    restart: always
+    # Le backend dépend directement de la BDD dans ce même fichier
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      # Les variables de connexion pointent vers le service 'postgres-db'
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/job_tracker
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=emsi
+    networks:
+      - job-tracker-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8082"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  # On définit le volume ici
+  postgres-data:
+
+networks:
+  # On définit le réseau ici, mais on le marque comme externe
+  job-tracker-network:
+    external: true

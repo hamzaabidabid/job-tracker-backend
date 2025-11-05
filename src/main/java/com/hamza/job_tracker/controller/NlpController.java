@@ -8,7 +8,7 @@ import java.util.Set;
 
 @RestController
 @RequestMapping("/api/nlp")
-@CrossOrigin(origins = {"http://localhost:4200", "http://localhost:8080"})
+@CrossOrigin(origins = {"http://localhost:4200", "http://localhost:8080","http://127.0.0.1"})
 
 public class NlpController {
 @Autowired
