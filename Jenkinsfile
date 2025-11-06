@@ -11,6 +11,7 @@ pipeline {
 	}
 
 	stages {
+
 		stage('Checkout') {
 			// Cette étape s'exécute sur l'agent Jenkins de base
 			agent any
@@ -46,7 +47,7 @@ pipeline {
 			steps {
 				script {
 					def imageTag = "v1.${BUILD_NUMBER}"
-					def dockerImage = docker.build(IMAGE_NAME + ":${imageTag}", '.')
+					def dockerImage = docker.build("${IMAGE_NAME}:${imageTag}", '.')
 
 					docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-credentials') {
 						dockerImage.push()
@@ -64,14 +65,26 @@ pipeline {
 			steps {
 				script {
 					def imageTag = "v1.${BUILD_NUMBER}"
-					withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
-						// On utilise un agent Docker pour l'outil 'sed' qui n'existe pas sur Windows
-						docker.image('alpine:latest').inside {
-							sh "sed -i 's|image: .*|image: ${IMAGE_NAME}:${imageTag}|' k8s/backend.yml"
-						}
 
-						sh "kubectl apply -f k8s/backend.yml"
-						sh "kubectl rollout status deployment/backend-deployment"
+					// On change file() en string() et le nom de la variable
+					withCredentials([string(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG_CONTENT')]) {
+						// On écrit le contenu du texte secret dans un fichier temporaire
+						sh 'echo "$KUBECONFIG_CONTENT" > ./kubeconfig.tmp'
+
+						// On dit à kubectl d'utiliser ce fichier temporaire pour toutes les commandes suivantes
+						// en exportant la variable d'environnement KUBECONFIG
+						sh """
+							export KUBECONFIG=./kubeconfig.tmp
+
+							docker run --rm -v \$(pwd):/workspace -w /workspace alpine:latest \\
+								sed -i 's|image: .*|image: ${IMAGE_NAME}:${imageTag}|' k8s/backend.yml
+
+							kubectl apply -f k8s/backend.yml
+							kubectl rollout status deployment/backend-deployment
+						"""
+
+						// On nettoie le fichier temporaire
+						sh 'rm ./kubeconfig.tmp'
 					}
 				}
 			}
