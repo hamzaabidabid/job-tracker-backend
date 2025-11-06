@@ -1,4 +1,4 @@
-// Jenkinsfile pour le backend (version finale simplifiée et robuste)
+// Jenkinsfile (version simplifiée utilisant le kubeconfig du dépôt Git)
 
 pipeline {
 	agent none
@@ -6,7 +6,6 @@ pipeline {
 	environment {
 		DOCKER_REGISTRY = 'abidhamza'
 		IMAGE_NAME = "${DOCKER_REGISTRY}/job-tracker-backend"
-		KUBECONFIG_CREDENTIAL_ID = 'kubeconfig-credentials'
 	}
 
 	stages {
@@ -45,7 +44,7 @@ pipeline {
 		}
 
 		// ======================================================
-		// Étape de Déploiement sur Kubernetes (SIMPLIFIÉE)
+		// Étape de Déploiement (ULTRA-SIMPLIFIÉE)
 		// ======================================================
 		stage('Deploy to Kubernetes') {
 			agent any
@@ -53,28 +52,14 @@ pipeline {
 				script {
 					def imageTag = "v1.${BUILD_NUMBER}"
 
-					withCredentials([string(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG_CONTENT')]) {
-						sh 'echo "$KUBECONFIG_CONTENT" > ./kubeconfig.tmp'
+					// On utilise directement le fichier kubeconfig.yml qui a été cloné
+					sh '''
+                        export KUBECONFIG=./kubeconfig.yml
 
-						// On utilise un seul bloc 'sh' pour la cohérence
-						sh '''
-                            export KUBECONFIG=./kubeconfig.tmp
-
-                            # 1. On applique la configuration de base depuis le fichier
-                            #    (Il appliquera l'image qui est dans le fichier, ce n'est pas grave)
-                            kubectl apply -f k8s/backend.yml
-
-                            # 2. On utilise 'kubectl set image' pour mettre à jour l'image du déploiement
-                            #    C'est la méthode recommandée, pas besoin de 'sed'.
-                            #    Syntaxe: kubectl set image deployment/<nom-du-deployment> <nom-du-conteneur>=<nouvelle-image>
-                            kubectl set image deployment/backend-deployment backend-app=${IMAGE_NAME}:${imageTag}
-
-                            # 3. On attend que le déploiement soit terminé
-                            kubectl rollout status deployment/backend-deployment
-                        '''
-
-						sh 'rm ./kubeconfig.tmp'
-					}
+                        kubectl apply -f k8s/backend.yml
+                        kubectl set image deployment/backend-deployment backend-app=${IMAGE_NAME}:${imageTag}
+                        kubectl rollout status deployment/backend-deployment
+                    '''
 				}
 			}
 		}
