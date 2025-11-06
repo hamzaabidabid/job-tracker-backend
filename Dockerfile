@@ -8,7 +8,7 @@ COPY . .
 RUN mvn clean package -DskipTests
 
 
-FROM openjdk:17-jdk-slim
+FROM openjdk:17-slim
 
 
 COPY --from=build /target/job_tracker-0.0.1-SNAPSHOT.jar app.jar
