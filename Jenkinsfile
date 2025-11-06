@@ -11,41 +11,43 @@ pipeline {
 	}
 
 	stages {
-		// ======================================================
-		// Étape 1 : Récupérer le code source
-		// ======================================================
 		stage('Checkout') {
+			// Cette étape s'exécute sur l'agent Jenkins de base
+			agent any
 			steps {
-				git 'https://github.com/hamzaabidabid/job-tracker-backend.git' // Remplacez par l'URL de votre dépôt Git
+				// On nettoie l'espace de travail et on récupère le code
+				cleanWs()
+				git url: 'https://github.com/hamzaabidabid/job-tracker-backend.git', branch: 'master'
 			}
 		}
 
-		// ======================================================
-		// Étape 2 : Construire et Tester (Phase CI)
-		// ======================================================
 		stage('Build & Test') {
-			steps {
-				// Jenkins utilise Docker pour lancer un conteneur Maven et construire le projet
-				script {
-					def mavenImage = docker.image('maven:3.8.5-openjdk-17')
-					mavenImage.inside {
-						sh 'mvn clean package -DskipTests' // On exécute la commande de build
-					}
+			// --- CORRECTION MAJEURE ---
+			// Cette étape s'exécutera ENTIÈREMENT à l'intérieur d'un conteneur Maven.
+			agent {
+				docker {
+					image 'maven:3.8.5-openjdk-17'
+					// On partage le cache Maven pour accélérer les builds futurs
+					args '-v $HOME/.m2:/root/.m2'
 				}
 			}
+			steps {
+				// La commande est maintenant exécutée directement, car nous sommes DANS le conteneur.
+				sh 'mvn clean package -DskipTests'
+			}
 		}
 
 		// ======================================================
-		// Étape 3 : Construire et Pousser l'Image Docker (Fin de la CI)
+		// Étape de Build & Push de l'Image Docker
 		// ======================================================
 		stage('Build & Push Docker Image') {
+			// Cette étape s'exécute sur l'agent Jenkins de base, qui a accès à Docker.
+			agent any
 			steps {
 				script {
-					// On génère un tag unique pour l'image (ex: 'v1.123')
 					def imageTag = "v1.${BUILD_NUMBER}"
 					def dockerImage = docker.build(IMAGE_NAME + ":${imageTag}", '.')
 
-					// On se connecte à Docker Hub avec les credentials stockés dans Jenkins
 					docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-credentials') {
 						dockerImage.push()
 					}
@@ -54,21 +56,21 @@ pipeline {
 		}
 
 		// ======================================================
-		// Étape 4 : Déployer sur Kubernetes (Phase CD)
+		// Étape de Déploiement sur Kubernetes
 		// ======================================================
 		stage('Deploy to Kubernetes') {
+			// Cette étape s'exécute sur l'agent Jenkins de base.
+			agent any
 			steps {
 				script {
 					def imageTag = "v1.${BUILD_NUMBER}"
-					// On utilise les credentials kubeconfig pour se connecter au cluster
 					withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG')]) {
-						// On met à jour le fichier YAML avec le nouveau tag d'image
-						sh "sed -i 's|image: .*|image: ${IMAGE_NAME}:${imageTag}|' k8s/backend.yml"
+						// On utilise un agent Docker pour l'outil 'sed' qui n'existe pas sur Windows
+						docker.image('alpine:latest').inside {
+							sh "sed -i 's|image: .*|image: ${IMAGE_NAME}:${imageTag}|' k8s/backend.yml"
+						}
 
-						// On applique la mise à jour sur Kubernetes
 						sh "kubectl apply -f k8s/backend.yml"
-
-						// On vérifie que le déploiement se passe bien
 						sh "kubectl rollout status deployment/backend-deployment"
 					}
 				}
