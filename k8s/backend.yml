@@ -1,0 +1,119 @@
+# ======================================================
+#  Secrets pour la base de données
+# ======================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+type: Opaque
+stringData:
+  POSTGRES_DB: job_tracker
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: emsi
+
+--- # Séparateur entre les objets Kubernetes
+
+
+
+# ======================================================
+#  Service pour la base de données (adresse réseau)
+# ======================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-db # Le backend utilisera ce nom DNS pour se connecter
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: postgres
+
+---
+
+# ======================================================
+#  Déploiement de la base de données PostgreSQL
+# ======================================================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-db
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:11-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: postgres-secret # Charge les variables depuis le Secret
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc # Utilise le PVC défini plus haut
+
+---
+
+# ======================================================
+#  Service pour le Backend (adresse réseau interne)
+# ======================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service # Le frontend utilisera ce nom DNS pour se connecter
+spec:
+  type: LoadBalancer  # rend le service accessible depuis l'extérieur
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 8082
+      targetPort: 8082
+
+
+# ======================================================
+#  Déploiement de l'application Backend Spring Boot
+# ======================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend-app
+          image: abidhamza/job-tracker-backend:v1 # Votre image sur Docker Hub
+          ports:
+            - containerPort: 8082
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://postgres-db:5432/job_tracker"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
