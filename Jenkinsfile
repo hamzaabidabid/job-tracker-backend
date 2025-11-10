@@ -1,17 +1,21 @@
-// Jenkinsfile (version simplifiée utilisant le kubeconfig du dépôt Git)
+// Jenkinsfile (VERSION FINALE - Authentification par Token)
 
 pipeline {
-	agent none
+	agent any // Simplifions en utilisant un agent global
 
 	environment {
 		DOCKER_REGISTRY = 'abidhamza'
 		IMAGE_NAME = "${DOCKER_REGISTRY}/job-tracker-backend"
-		KUBECONFIG_CREDENTIAL_ID = 'kubeconfig-credentials' // ID du credential pour Kubernetes
+
+		// --- CONFIGURATION POUR LE TOKEN ---
+		// Remplacez l'IP par celle de votre Minikube (obtenue avec 'minikube ip')
+		KUBERNETES_SERVER_URL = 'https://192.168.49.2:8443'
+		KUBERNETES_TOKEN_CREDENTIAL_ID = 'kubernetes-token'
+		// ------------------------------------
 	}
 
 	stages {
 		stage('Checkout') {
-			agent any
 			steps {
 				cleanWs()
 				git url: 'https://github.com/hamzaabidabid/job-tracker-backend.git', branch: 'master'
@@ -19,6 +23,7 @@ pipeline {
 		}
 
 		stage('Build & Test') {
+			// On exécute Maven dans un conteneur Docker pour la propreté
 			agent {
 				docker {
 					image 'maven:3.8.5-openjdk-17'
@@ -31,7 +36,6 @@ pipeline {
 		}
 
 		stage('Build & Push Docker Image') {
-			agent any
 			steps {
 				script {
 					def imageTag = "v1.${BUILD_NUMBER}"
@@ -45,22 +49,27 @@ pipeline {
 		}
 
 		// ======================================================
-		// Étape de Déploiement (ULTRA-SIMPLIFIÉE)
+		// Étape de Déploiement avec Token
 		// ======================================================
 		stage('Deploy to Kubernetes') {
-			agent any
 			steps {
 				script {
 					def imageTag = "v1.${BUILD_NUMBER}"
-					withCredentials([string(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG_CONTENT')]) {
-						sh 'echo "$KUBECONFIG_CONTENT" > ./kubeconfig.tmp'
+
+					// On utilise le credential du token
+					withCredentials([string(credentialsId: KUBERNETES_TOKEN_CREDENTIAL_ID, variable: 'KUBERNETES_TOKEN')]) {
 						sh '''
-                            export KUBECONFIG=./kubeconfig.tmp
+                            # On configure kubectl pour qu'il utilise le token au lieu d'un fichier
+                            kubectl config set-cluster minikube --server=${KUBERNETES_SERVER_URL} --insecure-skip-tls-verify=true
+                            kubectl config set-credentials jenkins-agent --token=${KUBERNETES_TOKEN}
+                            kubectl config set-context jenkins-context --cluster=minikube --user=jenkins-agent
+                            kubectl config use-context jenkins-context
+
+                            # On exécute les commandes de déploiement
                             kubectl apply -f k8s/backend.yml
                             kubectl set image deployment/backend-deployment backend-app=${IMAGE_NAME}:${imageTag}
                             kubectl rollout status deployment/backend-deployment
                         '''
-						sh 'rm ./kubeconfig.tmp'
 					}
 				}
 			}
