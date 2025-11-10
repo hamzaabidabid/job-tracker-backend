@@ -6,6 +6,7 @@ pipeline {
 	environment {
 		DOCKER_REGISTRY = 'abidhamza'
 		IMAGE_NAME = "${DOCKER_REGISTRY}/job-tracker-backend"
+		KUBECONFIG_CREDENTIAL_ID = 'kubeconfig-credentials' // ID du credential pour Kubernetes
 	}
 
 	stages {
