@@ -51,15 +51,16 @@ pipeline {
 			steps {
 				script {
 					def imageTag = "v1.${BUILD_NUMBER}"
-
-					// On utilise directement le fichier kubeconfig.yml qui a été cloné
-					sh '''
-                        export KUBECONFIG=./kubeconfig.yml
-
-                        kubectl apply -f k8s/backend.yml
-                        kubectl set image deployment/backend-deployment backend-app=${IMAGE_NAME}:${imageTag}
-                        kubectl rollout status deployment/backend-deployment
-                    '''
+					withCredentials([string(credentialsId: KUBECONFIG_CREDENTIAL_ID, variable: 'KUBECONFIG_CONTENT')]) {
+						sh 'echo "$KUBECONFIG_CONTENT" > ./kubeconfig.tmp'
+						sh '''
+                            export KUBECONFIG=./kubeconfig.tmp
+                            kubectl apply -f k8s/backend.yml
+                            kubectl set image deployment/backend-deployment backend-app=${IMAGE_NAME}:${imageTag}
+                            kubectl rollout status deployment/backend-deployment
+                        '''
+						sh 'rm ./kubeconfig.tmp'
+					}
 				}
 			}
 		}
