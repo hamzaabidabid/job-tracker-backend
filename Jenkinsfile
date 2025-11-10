@@ -56,20 +56,29 @@ pipeline {
 				script {
 					def imageTag = "v1.${BUILD_NUMBER}"
 
-					// On utilise le credential du token
 					withCredentials([string(credentialsId: KUBERNETES_TOKEN_CREDENTIAL_ID, variable: 'KUBERNETES_TOKEN')]) {
 						sh '''
-                            # On configure kubectl pour qu'il utilise le token au lieu d'un fichier
-                            kubectl config set-cluster minikube --server=${KUBERNETES_SERVER_URL} --insecure-skip-tls-verify=true
-                            kubectl config set-credentials jenkins-agent --token=${KUBERNETES_TOKEN}
-                            kubectl config set-context jenkins-context --cluster=minikube --user=jenkins-agent
-                            kubectl config use-context jenkins-context
+                    # Configuration de kubectl (ne change pas)
+                    kubectl config set-cluster minikube --server=${KUBERNETES_SERVER_URL} --insecure-skip-tls-verify=true
+                    kubectl config set-credentials jenkins-agent --token=${KUBERNETES_TOKEN}
+                    kubectl config set-context jenkins-context --cluster=minikube --user=jenkins-agent
+                    kubectl config use-context jenkins-context
 
-                            # On exécute les commandes de déploiement
-                            kubectl apply -f k8s/backend.yml
-                            kubectl set image deployment/backend-deployment backend-app=${IMAGE_NAME}:${imageTag}
-                            kubectl rollout status deployment/backend-deployment
-                        '''
+                    # --- CORRECTION ICI : Étape de nettoyage ---
+                    # On supprime les anciennes ressources avant de les recréer.
+                    # --ignore-not-found=true évite les erreurs si c'est le premier déploiement.
+                    echo "--- Cleaning up old resources ---"
+                    kubectl delete -f k8s/backend.yml --ignore-not-found=true
+                    # Attendre un peu pour que la suppression soit effective
+                    sleep 5
+                    # -----------------------------------------
+
+                    # On exécute les commandes de déploiement
+                    echo "--- Applying new resources ---"
+                    kubectl apply -f k8s/backend.yml
+                    kubectl set image deployment/backend-deployment backend-app=${IMAGE_NAME}:${imageTag}
+                    kubectl rollout status deployment/backend-deployment
+                '''
 					}
 				}
 			}
