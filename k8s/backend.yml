@@ -13,7 +13,21 @@ stringData:
 
 --- # Séparateur entre les objets Kubernetes
 
+# ======================================================
+#  Demande de stockage persistant pour la BDD (MANQUANT, AJOUTÉ)
+# ======================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce # Important pour une base de données
+  resources:
+    requests:
+      storage: 1Gi
 
+---
 
 # ======================================================
 #  Service pour la base de données (adresse réseau)
@@ -21,7 +35,7 @@ stringData:
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres-db # Le backend utilisera ce nom DNS pour se connecter
+  name: postgres-db
 spec:
   ports:
     - port: 5432
@@ -38,7 +52,10 @@ kind: StatefulSet
 metadata:
   name: postgres-db
 spec:
-  replicas: 3
+  # CORRECTION : Une base de données standard ne peut pas avoir 3 réplicas sans configuration de clustering complexe.
+  # Pour une base de données simple, on utilise TOUJOURS 1 réplica.
+  replicas: 1
+  serviceName: "postgres-db" # Important pour un StatefulSet
   selector:
     matchLabels:
       app: postgres
@@ -54,26 +71,35 @@ spec:
             - containerPort: 5432
           envFrom:
             - secretRef:
-                name: postgres-secret # Charge les variables depuis le Secret
+                name: postgres-secret
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
-      volumes:
-        - name: postgres-storage
-          persistentVolumeClaim:
-            claimName: postgres-pvc # Utilise le PVC défini plus haut
+  # CORRECTION : La définition du volume doit être dans un 'volumeClaimTemplates' pour un StatefulSet
+  # afin que chaque réplica ait son propre volume (même si nous n'en avons qu'un).
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-storage
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 1Gi
 
 ---
 
 # ======================================================
-#  Service pour le Backend (adresse réseau interne)
+#  Service pour le Backend
 # ======================================================
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend-service # Le frontend utilisera ce nom DNS pour se connecter
+  name: backend-service
 spec:
-  type: LoadBalancer  # rend le service accessible depuis l'extérieur
+  # CORRECTION : Le service backend n'a pas besoin d'être un LoadBalancer.
+  # Il ne doit être accessible que par le frontend à l'intérieur du cluster.
+  # On utilise ClusterIP, qui est le type par défaut.
+  type: ClusterIP
   selector:
     app: backend
   ports:
@@ -81,6 +107,7 @@ spec:
       port: 8082
       targetPort: 8082
 
+---
 
 # ======================================================
 #  Déploiement de l'application Backend Spring Boot
@@ -90,6 +117,8 @@ kind: Deployment
 metadata:
   name: backend-deployment
 spec:
+  # Vous pouvez commencer avec 1 réplica et augmenter plus tard si nécessaire.
+  # Mettre 3 réplicas est bien pour la haute disponibilité.
   replicas: 3
   selector:
     matchLabels:
@@ -101,7 +130,7 @@ spec:
     spec:
       containers:
         - name: backend-app
-          image: abidhamza/job-tracker-backend:v1 # Votre image sur Docker Hub
+          image: abidhamza/job-tracker-backend:v1
           ports:
             - containerPort: 8082
           env:
