@@ -20,7 +20,7 @@ public class config {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:4200", "http://localhost:8080","http://localhost:8082","http://127.0.0.1")); // Frontend et Gateway
+        configuration.setAllowedOrigins(List.of("http://localhost:4200", "http://localhost:8080","http://localhost:8082", "http://127.0.0.1:*")); // Frontend et Gateway
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*")); // Soyez plus spécifique en production
         configuration.setAllowCredentials(true);
