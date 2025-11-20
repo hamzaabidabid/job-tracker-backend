@@ -10,25 +10,23 @@ import java.util.Arrays;
 import java.util.List;
 
 @Configuration
-
-public class config {
-
-
-
-
+public class config { // Par convention, une classe commence par une Majuscule (ex: CorsConfig)
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:4200", "http://localhost:8080","http://localhost:8082", "http://127.0.0.1:*")); // Frontend et Gateway
+
+        // --- CORRECTION ICI ---
+        // Utilisez setAllowedOriginPatterns au lieu de setAllowedOrigins
+        // Cela permet d'utiliser "*" pour accepter tous les ports (nécessaire pour Minikube)
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*"));
+
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*")); // Soyez plus spécifique en production
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
-        // configuration.setExposedHeaders(List.of("Authorization")); // Pas nécessaire si le token est déjà dans la requête
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
-
 }
