@@ -16,37 +16,29 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    // 1. On définit la "Chaîne de sécurité"
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // A. ACTIVATION DE CORS : On dit à Spring d'utiliser notre bean défini plus bas
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-                // B. DÉSACTIVATION CSRF : Indispensable pour les API REST sans session (Stateless)
-                // Sinon vous aurez des erreurs 403 sur les POST/PUT
                 .csrf(csrf -> csrf.disable())
-
-                // C. GESTION DES AUTORISATIONS
                 .authorizeHttpRequests(auth -> auth
-                        // Autoriser l'accès public à certaines routes (login, register, etc.)
+                        // Autoriser l'accès aux routes API publiques
                         .requestMatchers("/api/**", "/auth/**").permitAll()
-                        // Toutes les autres requêtes nécessitent une authentification (à adapter selon votre besoin)
+                        // Autoriser l'accès aux endpoints de santé pour Kubernetes (CRUCIAL)
+                        .requestMatchers("/actuator/**", "/error").permitAll()
+                        // Autoriser Swagger si vous l'utilisez
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        // Le reste est protégé
                         .anyRequest().authenticated()
                 );
 
         return http.build();
     }
 
-    // 2. Votre configuration CORS (Corrigée et intégrée ici pour être sûr qu'elle est vue)
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-
-        // Le motif magique pour Minikube et Localhost
-        configuration.setAllowedOriginPatterns(List.of("*")); // En DEV : On autorise TOUT.
-        // En PROD, remplacez par : List.of("http://localhost:*", "http://127.0.0.1:*")
-
+        configuration.setAllowedOriginPatterns(List.of("*")); // Pour le dev
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
