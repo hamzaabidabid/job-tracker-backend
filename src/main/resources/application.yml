@@ -1,7 +1,6 @@
 # =========================================================================
-# ===                  CONFIGURATION PAR DÉFAUT (DEV LOCAL)             ===
+# ===                  CONFIGURATION GLOBALE (COMMUNE)                  ===
 # =========================================================================
-# Cette section est utilisée quand vous lancez l'application depuis votre IDE.
 server:
   port: 8082
 
@@ -9,14 +8,7 @@ spring:
   application:
     name: job_tracker
 
-  # Configuration de la source de données PostgreSQL
-  datasource:
-    url: jdbc:postgresql://localhost:5432/job_tracker # <-- Pour le dev local
-    username: postgres
-    password: emsi
-    driver-class-name: org.postgresql.Driver
-
-  # Configuration de JPA
+  # Configuration JPA par défaut
   jpa:
     hibernate:
       ddl-auto: update
@@ -26,34 +18,49 @@ spring:
         format_sql: true
     show-sql: true
 
----
-
-# =========================================================================
-# ===              CONFIGURATION SPÉCIFIQUE POUR DOCKER                 ===
-# =========================================================================
-# Cette section sera activée SEULEMENT si le profil 'docker' est actif.
-spring:
-  config:
-    activate:
-      on-profile: docker
-
-  # On ne redéfinit QUE ce qui doit changer pour Docker
-  datasource:
-    url: jdbc:postgresql://postgres-db:5432/job_tracker # <-- L'URL pour Docker
-
-
+# -------------------------------------------------------------------------
+#  MONITORING / ACTUATOR (Doit être ici pour être actif partout !)
+# -------------------------------------------------------------------------
 management:
   endpoint:
     health:
       probes:
         enabled: true
       show-details: always
-
   endpoints:
     web:
       exposure:
         include: health,info,prometheus
-
   metrics:
     tags:
       application: job-tracker-backend
+
+---
+# =========================================================================
+# ===                  PROFIL PAR DÉFAUT (DEV LOCAL)                    ===
+# =========================================================================
+spring:
+  config:
+    activate:
+      on-profile: default
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/job_tracker
+    username: postgres
+    password: emsi
+    driver-class-name: org.postgresql.Driver
+
+---
+# =========================================================================
+# ===              PROFIL PRODUCTION (DOCKER / K8S)                     ===
+# =========================================================================
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  datasource:
+    # Dans K8s, on surcharge souvent username/password via les variables d'environnement (ENV)
+    # Mais on définit l'URL ici.
+    url: jdbc:postgresql://postgres-db:5432/job_tracker
+    driver-class-name: org.postgresql.Driver
