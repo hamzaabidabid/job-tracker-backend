@@ -56,4 +56,4 @@ management:
 
   metrics:
     tags:
-      application: job-tracker-bac
+      application: job-tracker-backend
